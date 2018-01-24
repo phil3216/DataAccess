@@ -12,9 +12,7 @@ namespace DataAccess
     /// </summary>
     internal class Executor
     {
-        protected string ConnectionString { get => connection?.ConnectionString; }
-
-        private SqlConnection connection;
+        protected readonly string ConnectionString;
 
         /// <summary>
         /// Constructor for the executor.
@@ -26,87 +24,81 @@ namespace DataAccess
             if (String.IsNullOrWhiteSpace(connectionString))
                 throw new ArgumentException("ConnectionString cannot be empty");
 
-            connection = new SqlConnection(connectionString);
+            ConnectionString = connectionString;
         }
 
         /// <summary>
         /// Executes the sqlQuery and returns the result in the form of a dataset
         /// </summary>
         /// <param name="sqlQuery">the query to be executed</param>
-        /// <param name="parameters">the parameters. these are for parameterized querys.</param>
         /// <returns>a dataset with the result in it</returns>
         /// <exception cref="SqlException">If query is invalid.</exception>
         /// <exception cref="ArgumentException">throws this if the query is empty</exception>
-        internal DataSet Execute(string sqlQuery, params (string parameterName,SqlDbType parameterType,object parameterValue)[] parameters)
+        internal DataSet Execute(string sqlQuery)
         {
             if (String.IsNullOrWhiteSpace(sqlQuery))
-                throw new ArgumentException("sqlQuery cannot be null or whitespace");
+                throw new ArgumentException("sqlQuery cannot be empty");
 
-            connection.Open();
 
-            SqlCommand command = new SqlCommand(sqlQuery,connection);
-
-            if(parameters != null)
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
             {
-                foreach (var item in parameters)
+                DataSet dataSet = new DataSet();
+
+                try
                 {
-                    command.Parameters.Add(item.parameterName, item.parameterType);
-                    command.Parameters[item.parameterName].Value = item.parameterValue;
+                    connection.Open();
+
+                    adapter.Fill(dataSet);
+
                 }
+                finally 
+                {
+                    connection.Close();
+                }
+
+                return dataSet;
+
+
             }
-            
-
-            SqlDataAdapter adapter = new SqlDataAdapter(command);
-
-            DataSet dataSet = new DataSet();
-            adapter.Fill(dataSet);
-
-            connection.Close();
-
-            return dataSet;
         }
 
-
         /// <summary>
-        /// Runs the input procedure with the parameters specified
+        /// Executes the SqlCommand and returns the result in the form of a dataset
         /// </summary>
-        /// <param name="storedProcedureName">the name of the procedure</param>
-        /// <param name="parameters">Parameters tuple for the procedure</param>
-        /// <returns>A dataset that represents the result of the storedprocedure</returns>
-        /// <exception cref="SqlException">If query is invalid.</exception>
-        /// <exception cref="ArgumentException">if storedProcedureName is empty</exception>
-        internal DataSet ExecuteProcedure(string storedProcedureName, params (string parameterName, SqlDbType parameterType, int parameterSize,ParameterDirection direction,object parameterValue)[] parameters)
+        /// <param name="command">the command to be executed</param>
+        /// <returns>a dataset with the result in it</returns>
+        /// <exception cref="SqlException">If the command query is invalid.</exception>
+        /// <exception cref="NullReferenceException">throws this if the command is null</exception>
+        internal DataSet Execute(SqlCommand command)
         {
-            if (String.IsNullOrWhiteSpace(storedProcedureName))
-                throw new ArgumentException("storedProcedureName cannot be null or whitespace");
+            if (command == null)
+                throw new NullReferenceException("the SqlCommand cannot be null");
 
-
-            connection.Open();
-
-            SqlCommand command = new SqlCommand(storedProcedureName, connection);
-
-            command.CommandType = CommandType.StoredProcedure;
-
-
-            if (parameters != null)
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
             {
-                foreach (var item in parameters)
+
+
+                DataSet dataSet = new DataSet();
+
+                try
                 {
-                    command.Parameters.Add(item.parameterName, item.parameterType,item.parameterSize);
-                    command.Parameters[item.parameterName].Value = item.parameterValue;
-                    command.Parameters[item.parameterName].Direction = item.direction;
+                    connection.Open();
+
+                    command.Connection = connection;
+
+                    adapter.Fill(dataSet);
+
                 }
+                finally
+                {
+                    connection.Close();
+                }
+
+                return dataSet;
             }
-
-            SqlDataAdapter adapter = new SqlDataAdapter(command);
-
-            DataSet dataSet = new DataSet();
-            adapter.Fill(dataSet);
-
-            connection.Close();
-
-            return dataSet;
-
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System.Configuration;
+using System.Data.SqlClient;
+using System.Linq;
 using System.IO;
 using System.Xml;
 using System;
@@ -10,25 +12,68 @@ namespace DataAccess
 {
     public abstract class RepositoryBase
     {
-
         private Executor executor;
 
+        /// <summary>
+        /// Constructs the class
+        /// </summary>
+        /// <param name="databaseName">The name of the database to find</param>
+        /// <param name="configFilePath">The path to the config file</param>
         public RepositoryBase(string databaseName, string configFilePath)
         {
+            if (String.IsNullOrWhiteSpace(databaseName))
+                throw new ArgumentException("databaseName is empty");
+
+            if (!File.Exists(configFilePath))
+                throw new FileNotFoundException("the config file does not exist");
+           
             XmlDocument doc = new XmlDocument();
             doc.Load(configFilePath);
-            string connectionString = doc.SelectNodes($"{databaseName}/ConnectionString")[0].Value;
-            executor = new Executor(connectionString);
+            string connection = doc.SelectNodes("configuration/connectionStrings/add")
+                                   .Cast<XmlNode>()
+                                   .Where(x => x.Attributes["name"].Value == databaseName)
+                                   .First()
+                                   .Attributes["connectionString"]
+                                   .Value;
+
+            if (String.IsNullOrWhiteSpace(connection))
+                throw new ArgumentException("the connection string is empty");
+
+            executor = new Executor(connection);
         }
 
-        protected DataSet Execute(string sqlQuery, params (string parameterName, SqlDbType parameterType, object parameterValue)[] parameters)
+        /// <summary>
+        /// Reads the connection string from the app.config file in the current appdomain
+        /// </summary>
+        /// <param name="databaseName">the name of the database</param>
+        public RepositoryBase(string databaseName)
         {
-            return executor.Execute(sqlQuery,parameters);
+            string connection = ConfigurationManager.ConnectionStrings[databaseName].ConnectionString;
+            executor = new Executor(connection);
         }
 
-        protected DataSet ExecuteProcedure(string storedProcedureName, params (string parameterName, SqlDbType parameterType, int parameterSize, ParameterDirection direction, object parameterValue)[] parameters)
+        /// <summary>
+        /// Executes the sqlQuery and returns the result in the form of a dataset
+        /// </summary>
+        /// <param name="sqlQuery">the query to be executed</param>
+        /// <returns>a dataset with the result in it</returns>
+        /// <exception cref="SqlException">If query is invalid.</exception>
+        /// <exception cref="ArgumentException">throws this if the query is empty</exception>
+        protected DataSet Execute(string sqlQuery)
         {
-            return executor.ExecuteProcedure(storedProcedureName, parameters);
+            return executor.Execute(sqlQuery);
+        }
+
+        /// <summary>
+        /// Executes the SqlCommand and returns the result in the form of a dataset
+        /// </summary>
+        /// <param name="command">the command to be executed</param>
+        /// <returns>a dataset with the result in it</returns>
+        /// <exception cref="SqlException">If the command query is invalid.</exception>
+        /// <exception cref="NullReferenceException">throws this if the command is null</exception>
+        protected DataSet Execute(SqlCommand command)
+        {
+            return executor.Execute(command);
         }
 
     }
