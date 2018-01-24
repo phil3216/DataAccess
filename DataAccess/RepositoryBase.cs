@@ -7,9 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Text;
+using System.Data.Common;
 
 namespace DataAccess
 {
+
+    /// <summary>
+    /// Base class to control a database connection
+    /// </summary>
     public abstract class RepositoryBase
     {
         private Executor executor;
@@ -36,8 +41,13 @@ namespace DataAccess
                                    .Attributes["connectionString"]
                                    .Value;
 
+
+
             if (String.IsNullOrWhiteSpace(connection))
                 throw new ArgumentException("the connection string is empty");
+
+            DbConnectionStringBuilder csb = new DbConnectionStringBuilder();
+            csb.ConnectionString = connection;
 
             executor = new Executor(connection);
         }

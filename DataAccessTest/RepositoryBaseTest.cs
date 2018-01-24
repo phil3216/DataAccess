@@ -79,6 +79,18 @@ namespace DataAccessTest
         {
             Assert.ThrowsException<ArgumentException>(() => new RepositoryBaseInheritorTest("", @"C:\Users\phil3216\source\repos\DataAccess\DataAccessTest\repoBaseTest.xml"));
         }
+
+        [TestMethod]
+        public void ConstructorRepositoryEmptyConnectionStringArgumentException()
+        {
+            Assert.ThrowsException<ArgumentException>(() => new RepositoryBaseInheritorTest("TestDatabaseEmpty", @"C:\Users\phil3216\source\repos\DataAccess\DataAccessTest\repoBaseTest.xml"));
+        }
+
+        [TestMethod]
+        public void ConstructorRepositoryInvalidConnectionStringArgumentException()
+        {
+            Assert.ThrowsException<ArgumentException>(() => new RepositoryBaseInheritorTest("TestDatabaseInvalidString", @"C:\Users\phil3216\source\repos\DataAccess\DataAccessTest\repoBaseTest.xml"));
+        }
     }
 
     public class RepositoryBaseInheritorTest : RepositoryBase
